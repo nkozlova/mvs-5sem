@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
 
     FILE *file_stats, *file_data;
     file_stats = fopen("stats.txt", "a");
-    file_data = fopen("data.txt", "w");
+    file_data = fopen("data.txt", "a");
 
     int *a = (int *)calloc(n, sizeof(int));
     int *b = (int *)calloc(n, sizeof(int));
@@ -167,10 +167,10 @@ int main(int argc, char *argv[]) {
     }
     fprintf(file_data, "\n");
 
-    double ts1 = omp_get_wtime( );
+    /*double ts1 = omp_get_wtime( );
     qsort(b, n, sizeof(int), compare);
     double ts2 = omp_get_wtime( );
-    fprintf(file_stats, "%fs - qsort\n", ts2 - ts1);
+    fprintf(file_stats, "%fs - qsort\n", ts2 - ts1);*/
 
     fclose(file_data);
     fclose(file_stats);
