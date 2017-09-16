@@ -149,12 +149,12 @@ int main(int argc, char *argv[]) {
     int p = atoi(argv[3]);
 
     FILE *file_stats, *file_data;
-    file_stats = fopen("stats.txt", "w");
+    file_stats = fopen("stats.txt", "a");
     file_data = fopen("data.txt", "w");
 
     int *a = (int *)calloc(n, sizeof(int));
     int *b = (int *)calloc(n, sizeof(int));
-    for(int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++) {
         a[i] = rand() % 10000;
         b[i] = a[i];
         fprintf(file_data, "%d ", a[i]);
@@ -162,10 +162,15 @@ int main(int argc, char *argv[]) {
     fprintf(file_data, "\n");
     fprintf(file_stats, "%fs %d %d %d\n", mergeSort(a, n, m, p), n, m, p);
 
-    for(int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++) {
         fprintf(file_data, "%d ", a[i]);
     }
     fprintf(file_data, "\n");
+
+    double ts1 = omp_get_wtime( );
+    qsort(b, n, sizeof(int), compare);
+    double ts2 = omp_get_wtime( );
+    fprintf(file_stats, "%fs - qsort\n", ts2 - ts1);
 
     fclose(file_data);
     fclose(file_stats);
