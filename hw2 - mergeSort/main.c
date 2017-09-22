@@ -5,10 +5,11 @@
 
 
 int compare(const void* a, const void* b) {
-    return *(int*)a > *(int*)b;
+    return *(int*)a >= *(int*)b;
 }
 
-void merge(int** arr3, int* arr2, int s1, int s2, int p);
+void just_merge(int** arr, int* arr1, int* arr2, int it1, int it2, int s1, int s2);
+void merge(int** arr1, int* arr2, int s1, int s2, int p);
 void mergeSort(int* array, int size, int step, int p);
 void writeResults(int* arr, int* sort_arr, double time, int n, int m, int p);
 
@@ -34,9 +35,29 @@ int main(int argc, char* argv[]) {
 }
 
 
-void merge(int** arr3, int* arr2, int s1, int s2, int p) {
+void just_merge(int** arr, int* arr1, int* arr2, int i1, int i2, int s1, int s2) {
+    int it1 = i1, it2 = i2;
+    while (it1 < s1 && it2 < s2) {
+        if (arr1[it1] < arr2[it2]) {
+            (*arr)[it1 + it2] = arr1[it1];
+            it1 += 1;
+        } else {
+            (*arr)[it1 + it2] = arr2[it2];
+            it2 += 1;
+        }
+    }
+    while (it1 < s1) {
+        (*arr)[it1 + it2] = arr1[it1];
+        it1 += 1;
+    }
+    while (it2 < s2) {
+        (*arr)[it1 + it2] = arr2[it2];
+        it2 += 1;
+    }
+}
+
+void merge(int** arr1, int* arr2, int s1, int s2, int p) {
     omp_set_num_threads(p);
-    int* arr1 = *arr3;
     int mid2 = s2 / 2;
 
     int* arr = (int*)calloc(s1 + s2, sizeof(int));
@@ -46,10 +67,10 @@ void merge(int** arr3, int* arr2, int s1, int s2, int p) {
     int mid1;
     while (left <= right) {
         mid1 = (left + right) / 2;
-        if (arr2[mid2] <= arr1[mid1] && (mid1 == 0 || arr1[mid1 - 1] <= arr2[mid2])) {
+        if (arr2[mid2] <= (*arr1)[mid1] && (mid1 == 0 || (*arr1)[mid1 - 1] <= arr2[mid2])) {
             break;
         }
-        if (arr2[mid2] > arr1[mid1]) {
+        if (arr2[mid2] > (*arr1)[mid1]) {
             left = mid1 + 1;
         } else {
             right = mid1 - 1;
@@ -61,52 +82,19 @@ void merge(int** arr3, int* arr2, int s1, int s2, int p) {
     {
 #pragma omp section
         {
-            int it1 = 0, it2 = 0;
-            while (it1 < mid1 && it2 < mid2) {
-                if (arr1[it1] < arr2[it2]) {
-                    arr[it1 + it2] = arr1[it1];
-                    it1 += 1;
-                } else {
-                    arr[it1 + it2] = arr2[it2];
-                    it2 += 1;
-                }
-            }
-            while (it1 < mid1) {
-                arr[it1 + it2] = arr1[it1];
-                it1 += 1;
-            }
-            while (it2 < mid2) {
-                arr[it1 + it2] = arr2[it2];
-                it2 += 1;
-            }
+            just_merge(&arr, *arr1, arr2, 0, 0, mid1, mid2);
         }
-
 #pragma omp section
         {
-            int it1 = mid1, it2 = mid2;
-            while (it1 < s1 && it2 < s2) {
-                if (arr1[it1] < arr2[it2]) {
-                    arr[it1 + it2] = arr1[it1];
-                    it1 += 1;
-                } else {
-                    arr[it1 + it2] = arr2[it2];
-                    it2 += 1;
-                }
-            }
-            while (it1 < s1) {
-                arr[it1 + it2] = arr1[it1];
-                it1 += 1;
-            }
-            while (it2 < s2) {
-                arr[it1 + it2] = arr2[it2];
-                it2 += 1;
-            }
+            just_merge(&arr, *arr1, arr2, mid1, mid2, s1, s2);
         }
     }
 
-    *arr3 = arr;
+    for (int i = 0; i < s1 + s2; i++) {
+        (*arr1)[i] = arr[i];
+    }
+    free(arr);
 }
-
 
 void mergeSort(int* array, int size, int step, int p) {
     omp_set_num_threads(p);
@@ -126,7 +114,8 @@ void mergeSort(int* array, int size, int step, int p) {
             sizes[i] = size - step * i;
         }
 
-        result[i] = (int*)calloc(sizes[i], sizeof(int));
+        result[i] = (int*)calloc(size, sizeof(int));
+
         for (int j = 0; j < sizes[i]; j++) {
             result[i][j] = array[i * step + j];
         }
@@ -166,7 +155,6 @@ void mergeSort(int* array, int size, int step, int p) {
     free(result);
     free(sizes);
 }
-
 
 void writeResults(int* arr, int* sort_arr, double time, int n, int m, int p) {
     FILE* file_stats;
