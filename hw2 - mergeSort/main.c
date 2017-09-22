@@ -90,6 +90,7 @@ void merge(int** arr1, int* arr2, int s1, int s2, int p) {
         }
     }
 
+#pragma omp parallel for
     for (int i = 0; i < s1 + s2; i++) {
         (*arr1)[i] = arr[i];
     }
