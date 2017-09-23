@@ -5,11 +5,11 @@
 
 
 int compare(const void* a, const void* b) {
-    return *(int*)a >= *(int*)b;
+    return *(int*)a - *(int*)b;
 }
 
 void just_merge(int** arr, int* arr1, int* arr2, int it1, int it2, int s1, int s2);
-void merge(int** arr1, int* arr2, int s1, int s2, int p);
+void merge(int** arr1, int* arr2, int s1, int s2);
 void mergeSort(int* array, int size, int step, int p);
 void writeResults(int* arr, int* sort_arr, double time, int n, int m, int p);
 
@@ -56,8 +56,7 @@ void just_merge(int** arr, int* arr1, int* arr2, int i1, int i2, int s1, int s2)
     }
 }
 
-void merge(int** arr1, int* arr2, int s1, int s2, int p) {
-    omp_set_num_threads(p);
+void merge(int** arr1, int* arr2, int s1, int s2) {
     int mid2 = s2 / 2;
 
     int* arr = (int*)calloc(s1 + s2, sizeof(int));
@@ -100,56 +99,50 @@ void merge(int** arr1, int* arr2, int s1, int s2, int p) {
 void mergeSort(int* array, int size, int step, int p) {
     omp_set_num_threads(p);
 
-    int num_chunk = size / step;
-    if (size % step > 0) {
-        num_chunk += 1;
-    }
+    double ts1 = omp_get_wtime();
+
+    int num_chunk = (size + step - 1) / step;
 
     int** result = (int**)calloc(num_chunk, sizeof(int*));
     int* sizes = (int*)calloc(num_chunk, sizeof(int));
 
 #pragma parallel for
     for (int i = 0; i < num_chunk; i++) {
-        sizes[i] = step;
-        if (size - step * (i + 1) < 0) {
+        if (i < num_chunk - 1) {
+            sizes[i] = step;
+        } else {
             sizes[i] = size - step * i;
         }
 
-        result[i] = (int*)calloc(size, sizeof(int));
+        result[i] = (int *) calloc(size, sizeof(int));
 
         for (int j = 0; j < sizes[i]; j++) {
             result[i][j] = array[i * step + j];
         }
-    }
 
-    double ts1 = omp_get_wtime();
-#pragma omp parallel for
-    for (int i = 0; i < num_chunk; i++) {
         qsort(result[i], sizes[i], sizeof(int), compare);
     }
 
     for (int j = 1; j < num_chunk; j *= 2) {
-        for (int i = j; i < num_chunk + j; i += 2 * j) {
-            if (i < num_chunk) {
-                if (sizes[i] > 0) {
-                    merge(&result[i - j], result[i], sizes[i - j], sizes[i], p);
-                    sizes[i - j] += sizes[i];
-                    sizes[i] = 0;
-                }
-            } else {
-                if (sizes[i - j] > 0) {
-                    merge(&result[0], result[i - j], sizes[0], sizes[i - j], p);
-                    sizes[0] += sizes[i - j];
-                    sizes[i - j] = 0;
-                }
-            }
+        int k = 0;
+#pragma omp parallel for reduction(+: k)
+        for (int i = j; i < num_chunk; i += 2 * j) {
+            merge(&result[i - j], result[i], sizes[i - j], sizes[i]);
+            sizes[i - j] += sizes[i];
+            sizes[i] = 0;
+            k++;
+        }
+        int i = 2 * k * j;
+        if (i < num_chunk) {
+            merge(&result[0], result[i], sizes[0], sizes[i]);
+            sizes[0] += sizes[i];
+            sizes[i] = 0;
         }
     }
     double ts2 = omp_get_wtime();
 
     writeResults(array, result[0], ts2 - ts1, size, step, p);
 
-#pragma omp parallel for
     for (int i = 0; i < num_chunk; i++) {
         free(result[i]);
     }
@@ -177,4 +170,9 @@ void writeResults(int* arr, int* sort_arr, double time, int n, int m, int p) {
 
     fclose(file_data);
     fclose(file_stats);
+
+    double ts1 = omp_get_wtime();
+    qsort(arr, n, sizeof(int), compare);
+    double ts2 = omp_get_wtime();
+    printf("%fs\n", ts2 - ts1);
 }
