@@ -2,6 +2,7 @@
 #include <omp.h>
 #include <time.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 int compare(const void* a, const void* b) {
@@ -35,24 +36,22 @@ int main(int argc, char* argv[]) {
 }
 
 
-void just_merge(int** arr, int* arr1, int* arr2, int i1, int i2, int s1, int s2) {
-    int it1 = i1, it2 = i2;
+void just_merge(int** arr, int* arr1, int* arr2, int it1, int it2, int s1, int s2) {
     while (it1 < s1 && it2 < s2) {
-        if (arr1[it1] < arr2[it2]) {
-            (*arr)[it1 + it2] = arr1[it1];
-            it1 += 1;
-        } else {
-            (*arr)[it1 + it2] = arr2[it2];
-            it2 += 1;
+        int i1 = it1, i2 = it2;
+        while (it1 < s1 && it2 < s2 && arr1[it1] <= arr2[it2]) {
+            it1++;
         }
+        memcpy((*arr) + i1 + i2, arr1 + i1, (it1 - i1) * sizeof(int));
+        while (it1 < s1 && it2 < s2 && arr1[it1] > arr2[it2]) {
+            it2++;
+        }
+        memcpy((*arr) + it1 + i2, arr2 + i2, (it2 - i2) * sizeof(int));
     }
-    while (it1 < s1) {
-        (*arr)[it1 + it2] = arr1[it1];
-        it1 += 1;
-    }
-    while (it2 < s2) {
-        (*arr)[it1 + it2] = arr2[it2];
-        it2 += 1;
+    if (it1 < s1) {
+        memcpy((*arr) + it1 + it2, arr1 + it1, (s1 - it1) * sizeof(int));
+    } else {
+        memcpy((*arr) + it1 + it2, arr2 + it2, (s2 - it2) * sizeof(int));
     }
 }
 
@@ -89,10 +88,7 @@ void merge(int** arr1, int* arr2, int s1, int s2) {
         }
     }
 
-#pragma omp parallel for
-    for (int i = 0; i < s1 + s2; i++) {
-        (*arr1)[i] = arr[i];
-    }
+    memcpy(*arr1, arr, (s1 + s2) * sizeof(int));
     free(arr);
 }
 
@@ -114,11 +110,9 @@ void mergeSort(int* array, int size, int step, int p) {
             sizes[i] = size - step * i;
         }
 
-        result[i] = (int *) calloc(size, sizeof(int));
+        result[i] = (int*)calloc(size, sizeof(int));
 
-        for (int j = 0; j < sizes[i]; j++) {
-            result[i][j] = array[i * step + j];
-        }
+        memcpy(result[i], array + i * step, sizes[i] * sizeof(int));
 
         qsort(result[i], sizes[i], sizeof(int), compare);
     }
@@ -168,11 +162,11 @@ void writeResults(int* arr, int* sort_arr, double time, int n, int m, int p) {
 
     fprintf(file_stats, "%fs %d %d %d\n", time, n, m, p);
 
-    fclose(file_data);
-    fclose(file_stats);
-
     double ts1 = omp_get_wtime();
     qsort(arr, n, sizeof(int), compare);
     double ts2 = omp_get_wtime();
-    printf("%fs\n", ts2 - ts1);
+    fprintf(file_stats, "%fs - qsort - 1 thread\n", ts2 - ts1);
+
+    fclose(file_data);
+    fclose(file_stats);
 }
