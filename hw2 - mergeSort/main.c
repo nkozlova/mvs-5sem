@@ -102,7 +102,7 @@ void mergeSort(int* array, int size, int step, int p) {
     int** result = (int**)calloc(num_chunk, sizeof(int*));
     int* sizes = (int*)calloc(num_chunk, sizeof(int));
 
-#pragma parallel for
+#pragma omp parallel for
     for (int i = 0; i < num_chunk; i++) {
         if (i < num_chunk - 1) {
             sizes[i] = step;
@@ -165,7 +165,7 @@ void writeResults(int* arr, int* sort_arr, double time, int n, int m, int p) {
     double ts1 = omp_get_wtime();
     qsort(arr, n, sizeof(int), compare);
     double ts2 = omp_get_wtime();
-    fprintf(file_stats, "%fs - qsort - 1 thread\n", ts2 - ts1);
+    fprintf(file_stats, "%fs\n", ts2 - ts1);
 
     fclose(file_data);
     fclose(file_stats);
