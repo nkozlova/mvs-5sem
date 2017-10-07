@@ -172,32 +172,24 @@ void mergeSort(int* array, int size, int step, int p) {
             sizes[r1] += sizes[r2];
             sizes[r2] = 0;
         }
-
         if (k >= p) {
-            int z = 0;
-            for (int i = 0; i < k - p; i += p, z++) {
-                for (int l = 0; l < p; l++) {
-                    pthread_create(&threads[l], NULL, merge, (void *) &param[i + l]);
+            for (int i = 0; i < k; i += p) {
+                if (i < k - p) {
+                    for (int l = 0; l < p; l++) {
+                        pthread_create(&threads[l], NULL, merge, (void *) &param[i + l]);
+                    }
+                    for (int l = 0; l < p; l++) {
+                        pthread_join(threads[l], NULL);
+                    }
+                } else {
+                    for (int l = 0; i + l < k; l++) {
+                        pthread_create(&threads[l], NULL, merge, (void *) &param[i + l]);
+                    }
+                    for (int l = 0; i + l < k; l++) {
+                        pthread_join(threads[l], NULL);
+                    }
                 }
-                for (int l = 0; l < p; l++) {
-                    pthread_join(threads[l], NULL);
-                }
             }
-
-            for (int l = 0; l < k - z * p; l++) {
-                pthread_create(&threads[l], NULL, merge, (void *) &param[z * p + l]);
-            }
-            for (int l = 0; l < k - z * p; l++) {
-                pthread_join(threads[l], NULL);
-            }
-
-            for (int l = 0; l < k % p; l++) {
-                pthread_create(&threads[l], NULL, merge, (void *) &param[k - (k % p) + l]);
-            }
-            for (int l = 0; l < k % p; l++) {
-                pthread_join(threads[l], NULL);
-            }
-
         } else {
             for (int l = 0; l < k; l++) {
                 pthread_create(&threads[l], NULL, merge, (void *) &param[l]);
