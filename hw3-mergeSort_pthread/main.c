@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     }
 
     mergeSort(a, n, m, p);
-    mergeSort1(b, n, m, p);
+    mergeSortOMP(b, n, m, p);
 
     free(a);
     free(b);
