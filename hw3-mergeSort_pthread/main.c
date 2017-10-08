@@ -172,20 +172,22 @@ void mergeSort(int* array, int size, int step, int p) {
             sizes[r1] += sizes[r2];
             sizes[r2] = 0;
         }
-        for (int i = 0; i < k; i += p) {
-            if (i < k - p) {
+
+        if (p == 1) {
+            for (int i = 0; i < k; i++) {
+                merge((void*)&param[i]);
+            }
+        } else {
+            for (int i = 0; i < k; i += p) {
                 for (int l = 0; l < p; l++) {
-                    pthread_create(&threads[l], NULL, merge, (void *) &param[i + l]);
+                    if (i + l < k) {
+                        pthread_create(&threads[l], NULL, merge, (void *) &param[i + l]);
+                    }
                 }
                 for (int l = 0; l < p; l++) {
-                    pthread_join(threads[l], NULL);
-                }
-            } else {
-                for (int l = 0; i + l < k; l++) {
-                    pthread_create(&threads[l], NULL, merge, (void *) &param[i + l]);
-                }
-                for (int l = 0; i + l < k; l++) {
-                    pthread_join(threads[l], NULL);
+                    if (i + l < k) {
+                        pthread_join(threads[l], NULL);
+                    }
                 }
             }
         }
