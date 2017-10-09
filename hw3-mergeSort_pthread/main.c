@@ -24,12 +24,18 @@ typedef struct someParams_tag {
     int p;
 } someParams_t;
 
+typedef struct someHelpParams_tag {
+    int size;
+    int* arr;
+} someHelpParams_t;
+
 int compare(const void* a, const void* b) {
     return *(int*)a - *(int*)b;
 }
 
-void* just_merge(void* args);
+void* justMerge(void* args);
 void* merge(void* params);
+void* qsortParallel(void* help_params);
 void mergeSort(int* array, int size, int step, int p);
 void writeResults(int* arr, int* sort_arr, double time, int n, int m, int p);
 
@@ -50,7 +56,7 @@ int main(int argc, char* argv[]) {
         b[i] = a[i];
     }
 
-    mergeSort(a, n, m, p);
+    mergeSort(a, n, m, p - 1);
     mergeSortOMP(b, n, m, p);
 
     free(a);
@@ -59,7 +65,7 @@ int main(int argc, char* argv[]) {
 }
 
 
-void* just_merge(void* args) {
+void* justMerge(void* args) {
     someArgs_t* arg = (someArgs_t*) args;
     while (arg->it1 < arg->s1 && arg->it2 < arg->s2) {
         int i1 = arg->it1, i2 = arg->it2;
@@ -102,7 +108,7 @@ void* merge(void* params) {
     }
     arr[mid2 + mid1] = param->arr2[mid2];
 
-    someArgs_t args[2];
+    someArgs_t* args = (someArgs_t*)calloc(2, sizeof(someArgs_t));
     for (int i = 0; i < 2; i++) {
         args[i].arr = &arr;
         args[i].arr1 = *(param->arr1);
@@ -120,31 +126,40 @@ void* merge(void* params) {
         }
     }
 
-    if (param->p == 1) {
-        just_merge((void *) &args[0]);
-        just_merge((void *) &args[1]);
+    if (param->p == 0) {
+        justMerge((void *) &args[0]);
+        justMerge((void *) &args[1]);
     } else {
-        pthread_t threads[2];
+        pthread_t* threads = (pthread_t*) calloc(2, sizeof(pthread_t));
         for (int i = 0; i < 2; i++) {
-            pthread_create(&threads[i], NULL, just_merge, (void *) &args[i]);
+            pthread_create(&threads[i], NULL, justMerge, (void *) &args[i]);
         }
         for (int i = 0; i < 2; i++) {
             pthread_join(threads[i], NULL);
         }
+        free(threads);
     }
 
     memcpy(*(param->arr1), arr, (param->s1 + param->s2) * sizeof(int));
     free(arr);
+    free(args);
+}
+
+void* qsortParallel(void* help_params) {
+    someHelpParams_t* help_param = (someHelpParams_t*) help_params;
+    qsort(help_param->arr, help_param->size, sizeof(int), compare);
 }
 
 void mergeSort(int* array, int size, int step, int p) {
 
     int ts1 = clock();
     int num_chunk = (size + step - 1) / step;
+    pthread_t *threads = (pthread_t *) calloc(p, sizeof(pthread_t));
 
-    int** result = (int**)calloc(num_chunk, sizeof(int*));
-    int* sizes = (int*)calloc(num_chunk, sizeof(int));
+    int **result = (int **) calloc(num_chunk, sizeof(int *));
+    int *sizes = (int *) calloc(num_chunk, sizeof(int));
 
+    someHelpParams_t *helpParams = (someHelpParams_t *) calloc(num_chunk, sizeof(someHelpParams_t));
     for (int i = 0; i < num_chunk; i++) {
         if (i < num_chunk - 1) {
             sizes[i] = step;
@@ -152,15 +167,30 @@ void mergeSort(int* array, int size, int step, int p) {
             sizes[i] = size - step * i;
         }
 
-        result[i] = (int*)calloc(size, sizeof(int));
+        result[i] = (int *) calloc(size, sizeof(int));
         memcpy(result[i], array + i * step, sizes[i] * sizeof(int));
-        qsort(result[i], sizes[i], sizeof(int), compare);
+
+        helpParams[i].size = sizes[i];
+        helpParams[i].arr = result[i];
+
+        if (p == 0) {
+            qsortParallel((void*)&helpParams[i]);
+        } else {
+            if (i > i % p) {
+                pthread_join(threads[i % p], NULL);
+            }
+            pthread_create(&threads[i % p], NULL, qsortParallel, (void *) &helpParams[i]);
+        }
+    }
+    if (p > 1) {
+        for (int i = 0; i < p; i++) {
+            pthread_join(threads[i], NULL);
+        }
     }
 
-    pthread_t threads[p];
     for (int j = 1; j < num_chunk; j *= 2) {
         int k = (num_chunk + j - 1) / (2 * j);
-        someParams_t param[k];
+        someParams_t *param = (someParams_t*)calloc(k, sizeof(someParams_t));
         for (int i = 0; i < k; i++) {
             int r1 = 2 * j * i;
             int r2 = r1 + j;
@@ -173,7 +203,7 @@ void mergeSort(int* array, int size, int step, int p) {
             sizes[r2] = 0;
         }
 
-        if (p == 1) {
+         if (p == 0) {
             for (int i = 0; i < k; i++) {
                 merge((void*)&param[i]);
             }
@@ -203,16 +233,19 @@ void mergeSort(int* array, int size, int step, int p) {
             sizes[i] = 0;
             merge((void*)&param[0]);
         }
+        free(param);
     }
     int ts2 = clock();
 
-    writeResults(array, result[0], ((double)(ts2 - ts1)) / CLOCKS_PER_SEC, size, step, p);
+    writeResults(array, result[0], ((double)(ts2 - ts1)) / CLOCKS_PER_SEC, size, step, p + 1);
 
     for (int i = 0; i < num_chunk; i++) {
         free(result[i]);
     }
     free(result);
     free(sizes);
+    free(helpParams);
+    free(threads);
 }
 
 void writeResults(int* arr, int* sort_arr, double time, int n, int m, int p) {
