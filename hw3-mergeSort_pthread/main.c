@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <time.h>
+#include <sys/time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
         b[i] = a[i];
     }
 
-    mergeSort(a, n, m, p - 1);
+    mergeSort(a, n, m, p);
     mergeSortOMP(b, n, m, p);
 
     free(a);
@@ -126,7 +126,7 @@ void* merge(void* params) {
         }
     }
 
-    if (param->p == 0) {
+    if (param->p == 1) {
         justMerge((void *) &args[0]);
         justMerge((void *) &args[1]);
     } else {
@@ -152,40 +152,31 @@ void* qsortParallel(void* help_params) {
 
 void mergeSort(int* array, int size, int step, int p) {
 
-    int ts1 = clock();
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
     int num_chunk = (size + step - 1) / step;
     pthread_t *threads = (pthread_t *) calloc(p, sizeof(pthread_t));
-
-    int **result = (int **) calloc(num_chunk, sizeof(int *));
-    int *sizes = (int *) calloc(num_chunk, sizeof(int));
 
     someHelpParams_t *helpParams = (someHelpParams_t *) calloc(num_chunk, sizeof(someHelpParams_t));
     for (int i = 0; i < num_chunk; i++) {
         if (i < num_chunk - 1) {
-            sizes[i] = step;
+            helpParams[i].size = step;
         } else {
-            sizes[i] = size - step * i;
+            helpParams[i].size = size - step * i;
         }
 
-        result[i] = (int *) calloc(size, sizeof(int));
-        memcpy(result[i], array + i * step, sizes[i] * sizeof(int));
+        helpParams[i].arr = (int *) calloc(size, sizeof(int));
+        memcpy(helpParams[i].arr, array + i * step, helpParams[i].size * sizeof(int));
 
-        helpParams[i].size = sizes[i];
-        helpParams[i].arr = result[i];
-
-        if (p == 0) {
-            qsortParallel((void*)&helpParams[i]);
-        } else {
-            if (i > i % p) {
-                pthread_join(threads[i % p], NULL);
-            }
-            pthread_create(&threads[i % p], NULL, qsortParallel, (void *) &helpParams[i]);
+        if (i > i % p) {
+            pthread_join(threads[i % p], NULL);
         }
+        pthread_create(&threads[i % p], NULL, qsortParallel, (void *) &helpParams[i]);
     }
-    if (p > 1) {
-        for (int i = 0; i < p; i++) {
-            pthread_join(threads[i], NULL);
-        }
+
+    for (int i = 0; i < p; i++) {
+        pthread_join(threads[i], NULL);
     }
 
     for (int j = 1; j < num_chunk; j *= 2) {
@@ -194,56 +185,48 @@ void mergeSort(int* array, int size, int step, int p) {
         for (int i = 0; i < k; i++) {
             int r1 = 2 * j * i;
             int r2 = r1 + j;
-            param[i].arr1 = &result[r1];
-            param[i].arr2 = result[r2];
-            param[i].s1 = sizes[r1];
-            param[i].s2 = sizes[r2];
+            param[i].arr1 = &helpParams[r1].arr;
+            param[i].arr2 = helpParams[r2].arr;
+            param[i].s1 = helpParams[r1].size;
+            param[i].s2 = helpParams[r2].size;
             param[i].p = 1;
-            sizes[r1] += sizes[r2];
-            sizes[r2] = 0;
+            helpParams[r1].size += helpParams[r2].size;
+            helpParams[r2].size = 0;
         }
 
-         if (p == 0) {
-            for (int i = 0; i < k; i++) {
-                merge((void*)&param[i]);
-            }
-        } else {
-            for (int i = 0; i < k; i += p) {
-                for (int l = 0; l < p; l++) {
-                    if (i + l < k) {
-                        pthread_create(&threads[l], NULL, merge, (void *) &param[i + l]);
-                    }
+        for (int i = 0; i < k; i += p) {
+            for (int l = 0; l < p; l++) {
+                if (i + l < k) {
+                    pthread_create(&threads[l], NULL, merge, (void *) &param[i + l]);
                 }
-                for (int l = 0; l < p; l++) {
-                    if (i + l < k) {
-                        pthread_join(threads[l], NULL);
-                    }
+            }
+            for (int l = 0; l < p; l++) {
+                if (i + l < k) {
+                    pthread_join(threads[l], NULL);
                 }
             }
         }
 
         int i = 2 * k * j;
         if (i < num_chunk) {
-            param[0].arr1 = &result[0];
-            param[0].arr2 = result[i];
-            param[0].s1 = sizes[0];
-            param[0].s2 = sizes[i];
+            param[0].arr1 = &helpParams[0].arr;
+            param[0].arr2 = helpParams[i].arr;
+            param[0].s1 = helpParams[0].size;
+            param[0].s2 = helpParams[i].size;
             param[0].p = p;
-            sizes[0] += sizes[i];
-            sizes[i] = 0;
+            helpParams[0].size += helpParams[i].size;
+            helpParams[i].size = 0;
             merge((void*)&param[0]);
         }
         free(param);
     }
-    int ts2 = clock();
-
-    writeResults(array, result[0], ((double)(ts2 - ts1)) / CLOCKS_PER_SEC, size, step, p + 1);
+    gettimeofday(&end, NULL);
+    double delta = ((end.tv_sec - start.tv_sec) * 1000000u + end.tv_usec - start.tv_usec) / 1.e6;
+    writeResults(array, helpParams[0].arr, delta, size, step, p);
 
     for (int i = 0; i < num_chunk; i++) {
-        free(result[i]);
+        free(helpParams[i].arr);
     }
-    free(result);
-    free(sizes);
     free(helpParams);
     free(threads);
 }
@@ -266,10 +249,12 @@ void writeResults(int* arr, int* sort_arr, double time, int n, int m, int p) {
 
     fprintf(file_stats, "%fs %d %d %d\n", time, n, m, p);
 
-    int ts1 = clock();
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
     qsort(arr, n, sizeof(int), compare);
-    int ts2 = clock();
-    fprintf(file_stats, "%fs\n", ((double)(ts2 - ts1)) / CLOCKS_PER_SEC);
+    gettimeofday(&end, NULL);
+    double delta = ((end.tv_sec - start.tv_sec) * 1000000u + end.tv_usec - start.tv_usec) / 1.e6;
+    fprintf(file_stats, "%fs\n", delta);
 
     fclose(file_data);
     fclose(file_stats);
