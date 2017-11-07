@@ -422,7 +422,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                 free(from_down);
             }
 
-            writeResult(ctx, finished, fin_size, rank, size);
+            writeResult(ctx, rank, size, finished, fin_size);
 
             free(tmp_left);
             free(tmp_right);
@@ -465,10 +465,8 @@ void writeResult(Ctx* ctx, int rank, int size, Particle* result, int res_size) {
 
     for (int y = 0; y < ctx->l; y++) {
         MPI_File_set_view(data, start_seek + line_seek * y, MPI_INT, MPI_INT, "native", MPI_INFO_NULL);
-        for (int i = 0; i < ctx->l * size; i++) {
-            MPI_File_write(data, pos[y][i], 1, MPI_INT, MPI_STATUS_IGNORE);
-        }
-        free (pos[y]);
+        MPI_File_write(data, pos[y], ctx->l * size, MPI_INT, MPI_STATUS_IGNORE);
+        free(pos[y]);
     }
     free(pos);
 
