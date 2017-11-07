@@ -497,8 +497,8 @@ typedef struct Particle_t {
 } Particle;
 
 
-void swap_particle_array(particle_t** x, particle_t** y) {
-    particle_t* tmp = *x;
+void swap_particle_array(Particle** x, Particle** y) {
+    Particle* tmp = *x;
     *x = *y;
     *y = tmp;
 }
