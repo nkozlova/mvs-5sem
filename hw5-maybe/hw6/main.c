@@ -317,17 +317,17 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                 MPI_Request requests[8];
 
                 int from_left_size, from_right_size, from_up_size, from_down_size;
-                MPI_Issend(&tmp_left_size, 1, MPI_INT, left_rank, LEFT, MPI_COMM_WORLD, &requests);
-                MPI_Issend(&tmp_right_size, 1, MPI_INT, right_rank, RIGHT, MPI_COMM_WORLD, &requests + 1);
-                MPI_Issend(&tmp_up_size, 1, MPI_INT, up_rank, UP, MPI_COMM_WORLD, &requests + 2);
-                MPI_Issend(&tmp_down_size, 1, MPI_INT, down_rank, DOWN, MPI_COMM_WORLD, &requests + 3);
+                MPI_Issend(&tmp_left_size, 1, MPI_INT, left_rank, LEFT, MPI_COMM_WORLD, requests);
+                MPI_Issend(&tmp_right_size, 1, MPI_INT, right_rank, RIGHT, MPI_COMM_WORLD, requests + 1);
+                MPI_Issend(&tmp_up_size, 1, MPI_INT, up_rank, UP, MPI_COMM_WORLD, requests + 2);
+                MPI_Issend(&tmp_down_size, 1, MPI_INT, down_rank, DOWN, MPI_COMM_WORLD, requests + 3);
 
-                MPI_Irecv(&from_left_size, 1, MPI_INT, left_rank, RIGHT, MPI_COMM_WORLD, &requests + 4);
-                MPI_Irecv(&from_right_size, 1, MPI_INT, right_rank, LEFT, MPI_COMM_WORLD, &requests + 5);
-                MPI_Irecv(&from_up_size, 1, MPI_INT, up_rank, DOWN, MPI_COMM_WORLD, &requests + 6);
-                MPI_Irecv(&from_down_size, 1, MPI_INT, down_rank, UP, MPI_COMM_WORLD, &requests + 7);
+                MPI_Irecv(&from_left_size, 1, MPI_INT, left_rank, RIGHT, MPI_COMM_WORLD, requests + 4);
+                MPI_Irecv(&from_right_size, 1, MPI_INT, right_rank, LEFT, MPI_COMM_WORLD, requests + 5);
+                MPI_Irecv(&from_up_size, 1, MPI_INT, up_rank, DOWN, MPI_COMM_WORLD, requests + 6);
+                MPI_Irecv(&from_down_size, 1, MPI_INT, down_rank, UP, MPI_COMM_WORLD, requests + 7);
 
-                MPI_Waitall(8, &requests, MPI_STATUS_IGNORE);
+                MPI_Waitall(8, requests, MPI_STATUS_IGNORE);
 
                 Particle* from_left = (Particle*) calloc(from_left_size, sizeof(Particle));
                 Particle* from_right = (Particle*) calloc(from_right_size, sizeof(Particle));
@@ -335,22 +335,22 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                 Particle* from_down = (Particle*) calloc(from_down_size, sizeof(Particle));
 
                 MPI_Issend(tmp_left, tmp_left_size * sizeof(Particle), MPI_BYTE,
-                           left_rank, LEFT, MPI_COMM_WORLD, &requests);
+                           left_rank, LEFT, MPI_COMM_WORLD, requests);
                 MPI_Issend(tmp_right, tmp_right_size * sizeof(Particle), MPI_BYTE,
-                           right_rank, RIGHT, MPI_COMM_WORLD, &requests + 1);
+                           right_rank, RIGHT, MPI_COMM_WORLD, requests + 1);
                 MPI_Issend(tmp_up, tmp_up_size * sizeof(Particle), MPI_BYTE,
-                           up_rank, UP, MPI_COMM_WORLD, &requests + 2);
+                           up_rank, UP, MPI_COMM_WORLD, requests + 2);
                 MPI_Issend(tmp_down, tmp_down_size * sizeof(Particle), MPI_BYTE,
-                           down_rank, DOWN, MPI_COMM_WORLD, &requests + 3);
+                           down_rank, DOWN, MPI_COMM_WORLD, requests + 3);
 
                 MPI_Irecv(from_left, from_left_size * sizeof(Particle), MPI_BYTE,
-                          left_rank, RIGHT, MPI_COMM_WORLD, &requests + 4);
+                          left_rank, RIGHT, MPI_COMM_WORLD, requests + 4);
                 MPI_Irecv(from_right, from_right_size * sizeof(Particle), MPI_BYTE,
-                          right_rank, LEFT, MPI_COMM_WORLD, &requests + 5);
+                          right_rank, LEFT, MPI_COMM_WORLD, requests + 5);
                 MPI_Irecv(from_up, from_up_size * sizeof(Particle), MPI_BYTE,
-                          up_rank, DOWN, MPI_COMM_WORLD, &requests + 6);
+                          up_rank, DOWN, MPI_COMM_WORLD, requests + 6);
                 MPI_Irecv(from_down, from_down_size * sizeof(Particle), MPI_BYTE,
-                          down_rank, UP, MPI_COMM_WORLD, &requests + 7);
+                          down_rank, UP, MPI_COMM_WORLD, requests + 7);
 
                 MPI_Waitall(8, &requests, MPI_STATUS_IGNORE);
 
