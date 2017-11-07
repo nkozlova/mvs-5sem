@@ -445,15 +445,11 @@ void writeResult(Ctx* ctx, int rank, int size, Particle* result, int res_size) {
     MPI_File_delete("data.bin", MPI_INFO_NULL);
     MPI_File_open(MPI_COMM_WORLD, "data.bin", MPI_MODE_WRONLY | MPI_MODE_CREATE, MPI_INFO_NULL, &data);
 
-    /*int pos[ctx->l][ctx->l * size];
+    int pos[ctx->l][ctx->l * size];
     for (int y = 0; y < ctx->l; y++) {
         for (int x = 0; x < ctx->l * size; x++) {
             pos[y][x] = 0;
         }
-    }*/
-    int** pos = (int**) calloc(ctx->l, sizeof(int*));
-    for (int i = 0; i < ctx->l; i++) {
-        pos[i] = (int*) calloc(ctx->l * size, sizeof(int));
     }
 
     for (int i = 0; i < res_size; i++) {
@@ -466,9 +462,7 @@ void writeResult(Ctx* ctx, int rank, int size, Particle* result, int res_size) {
     for (int y = 0; y < ctx->l; y++) {
         MPI_File_set_view(data, start_seek + line_seek * y, MPI_INT, MPI_INT, "native", MPI_INFO_NULL);
         MPI_File_write(data, pos[y], ctx->l * size, MPI_INT, MPI_STATUS_IGNORE);
-        free(pos[y]);
     }
-    free(pos);
 
     MPI_File_close(&data);
 }
