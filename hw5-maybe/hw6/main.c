@@ -118,6 +118,18 @@ void randomWalk(Ctx* ctx, int rank, int size) {
     int max_count = 2 * count;
     Particle* particles = (Particle*) calloc(max_count, sizeof(Particle));
 
+    int res_size = 0;
+    int res_max_count = count;
+    Particle* resulted = (Particle*) calloc(res_max_count, sizeof(Particle));
+
+    Particle* to_left = (Particle*) calloc(count, sizeof(Particle));
+    Particle* to_right = (Particle*) calloc(count, sizeof(Particle));
+    Particle* to_up = (Particle*) calloc(count, sizeof(Particle));
+    Particle* to_down = (Particle*) calloc(count, sizeof(Particle));
+
+    int left_size = 0, right_size = 0, up_size = 0, down_size = 0;
+    int left_max_count = count, right_max_count = count, up_max_count = count, down_max_count = count;
+
     int left_rank = rank - 1, right_rank = rank + 1, up_rank = rank - ctx->a, down_rank = rank + ctx->a;
     if (rank % ctx->a == 0) {
         left_rank += ctx->a;
@@ -132,20 +144,8 @@ void randomWalk(Ctx* ctx, int rank, int size) {
         down_rank = rank % ctx->a;
     }
 
-    int left_size = 0, right_size = 0, up_size = 0, down_size = 0;
-    int left_max_count = count, right_max_count = count, up_max_count = count, down_max_count = count;
-
-    Particle* to_left = (Particle*) calloc(left_max_count, sizeof(Particle));
-    Particle* to_right = (Particle*) calloc(right_max_count, sizeof(Particle));
-    Particle* to_up = (Particle*) calloc(up_max_count, sizeof(Particle));
-    Particle* to_down = (Particle*) calloc(down_max_count, sizeof(Particle));
-
-    int res_size = 0;
-    int res_max_count = count;
-    Particle* resulted = (Particle*) calloc(res_max_count, sizeof(Particle));
-
+    int flag = 1;
     omp_lock_t lock;
-    int is_running = 1;
     omp_init_lock(&lock);
     omp_set_lock(&lock);
 
@@ -153,7 +153,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
     {
 #pragma omp section
         {
-            while(is_running) {
+            while(flag) {
                 omp_set_lock(&lock);
                 for (int j = 0; j < 100; j++) {
                     int i = 0;
@@ -171,11 +171,11 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                         }
                         particles[i].n--;
 
-                        switch(step(ctx)) {
+                        switch (step(ctx)) {
                             case LEFT:
                                 particles[i].x--;
                                 if (particles[i].x < 0) {
-                                    particles[i].x = ctx->l + particles[i].x;
+                                    particles[i].x += ctx->l;
 
                                     if (left_size >= left_max_count) {
                                         left_max_count *= 2;
@@ -212,7 +212,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                             case DOWN:
                                 particles[i].y--;
                                 if (particles[i].y < 0) {
-                                    particles[i].y = ctx->l + particles[i].y;
+                                    particles[i].y += ctx->l;
 
                                     if (down_size >= down_max_count) {
                                         down_max_count *= 2;
@@ -257,31 +257,27 @@ void randomWalk(Ctx* ctx, int rank, int size) {
 
 #pragma omp section
         {
-            int* seeds;
-            int seed;
+            int* rands;
+            int to;
             if (rank == MASTER) {
                 srand(time(NULL));
-                seeds = (int*) calloc(size, sizeof(int));
+                rands = (int*) calloc(size, sizeof(int));
                 for (int i = 0; i < size; i++) {
-                    seeds[i] = rand();
+                    rands[i] = rand();
                 }
             }
-            MPI_Scatter(seeds, 1, MPI_INT, &seed, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
+            MPI_Scatter(rands, 1, MPI_INT, &to, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
             if (rank == MASTER) {
-                free(seeds);
+                free(rands);
             }
-            srand(seed);
 
             for (int i = 0; i < count; i++) {
-                int x = rand() % ctx->l;
-                int y = rand() % ctx->l;
-                Particle tmp_particle = {
-                        .x = x,
-                        .y = y,
+                particles[i] = (Particle) {
+                        .x = rand() % ctx->l,
+                        .y = rand() % ctx->l,
                         .n = ctx->n,
                         .id_proc = rank,
                 };
-                particles[i] = tmp_particle;
             }
 
             int tmp_left_size = left_size, tmp_right_size = right_size, tmp_up_size = up_size, tmp_down_size = down_size;
@@ -296,7 +292,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
 
             omp_unset_lock(&lock);
 
-            while (is_running) {
+            while (flag) {
                 omp_set_lock(&lock);
                 swapI(&tmp_left_size, &left_size);
                 swapI(&tmp_right_size, &right_size);
@@ -419,7 +415,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                     }
                 }
 
-                MPI_Scatter(is_actives, 1, MPI_INT, &is_running, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
+                MPI_Scatter(is_actives, 1, MPI_INT, &flag, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
 
                 omp_unset_lock(&lock);
 
@@ -449,7 +445,6 @@ void randomWalk(Ctx* ctx, int rank, int size) {
 
 void writeResult(Ctx* ctx, int rank, int size, Particle* resulted, int res_size) {
     MPI_File data;
-    // MPI_File_delete("data.bin", MPI_INFO_NULL);
     MPI_File_open(MPI_COMM_WORLD, "data.bin", MPI_MODE_WRONLY | MPI_MODE_CREATE, MPI_INFO_NULL, &data);
 
     int pos[ctx->l][ctx->l * size];
