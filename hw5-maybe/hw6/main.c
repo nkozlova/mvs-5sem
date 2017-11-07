@@ -42,7 +42,7 @@ void swapP(Particle** x, Particle** y) {
 
 
 int step(Ctx* ctx);
-void writeResult(Ctx* ctx, int rank, int size, Particle* result, int res_size);
+void writeResult(Ctx* ctx, Particle* result, int res_size, int rank, int size);
 void randomWalk(Ctx* ctx, int rank, int size);
 
 
@@ -422,7 +422,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                 free(from_down);
             }
 
-            writeResult(ctx, rank, size, finished, fin_size);
+            writeResult(ctx, finished, fin_size, rank, size);
 
             free(tmp_left);
             free(tmp_right);
@@ -440,7 +440,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
     omp_destroy_lock(&lock);
 }
 
-void writeResult(Ctx* ctx, int rank, int size, Particle* result, int res_size) {
+void writeResult(Ctx* ctx, Particle* result, int res_size, int rank, int size) {
     MPI_File data;
     MPI_File_delete("data.bin", MPI_INFO_NULL);
     MPI_File_open(MPI_COMM_WORLD, "data.bin", MPI_MODE_WRONLY | MPI_MODE_CREATE, MPI_INFO_NULL, &data);
@@ -456,7 +456,7 @@ void writeResult(Ctx* ctx, int rank, int size, Particle* result, int res_size) {
         pos[result[i].y][result[i].x * size + result[i].process] += 1;
     }
 
-    int start_seek = (ctx->l * ctx->l * (rank / ctx->a) * ctx->a + ctx->l * (rank % ctx->a)) * size * sizeof (int);
+    int start_seek = ((ctx->l * ctx->l) * (rank / ctx->a) * ctx->a + ctx->l * (rank % ctx->a)) * size * sizeof (int);
     int line_seek = ctx->l * ctx->a * size * sizeof(int);
 
     for (int y = 0; y < ctx->l; y++) {
