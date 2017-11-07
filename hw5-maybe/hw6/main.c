@@ -1,4 +1,4 @@
-/*#include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <omp.h>
@@ -29,8 +29,14 @@ typedef struct Particle_t {
     int process;
 } Particle;
 
-void swap(void** x, void** y){
-    void* tmp = *x;
+void swap_particle_array(Particle** x, Particle** y) {
+    Particle* tmp = *x;
+    *x = *y;
+    *y = tmp;
+}
+
+void swap_int(int* x, int* y) {
+    int tmp = *x;
     *x = *y;
     *y = tmp;
 }
@@ -288,22 +294,22 @@ void randomWalk(Ctx* ctx, int rank, int size) {
 
             while (is_running) {
                 omp_set_lock(&lock);
-                swap((void*) &tmp_left_size, (void*) &tmp_left_size);
-                swap((void*) &tmp_right_size, (void*) &right_size);
-                swap((void*) &tmp_up_size, (void*) &up_size);
-                swap((void*) &tmp_down_size, (void*) &down_size);
-                swap((void*) &tmp_left_max_count, (void*) &left_max_count);
-                swap((void*) &tmp_right_max_count, (void*) &right_max_count);
-                swap((void*) &tmp_up_max_count, (void*) &up_max_count);
-                swap((void*) &tmp_down_max_count, (void*) &down_max_count);
+                swap_int(&tmp_left_size, &left_size);
+                swap_int(&tmp_right_size, &right_size);
+                swap_int(&tmp_up_size, &up_size);
+                swap_int(&tmp_down_size, &down_size);
+                swap_int(&tmp_left_max_size, &left_max_size);
+                swap_int(&tmp_right_max_size, &right_max_size);
+                swap_int(&tmp_up_max_size, &up_max_size);
+                swap_int(&tmp_down_max_size, &down_max_size);
                 left_size = 0;
                 right_size = 0;
                 up_size = 0;
                 down_size = 0;
-                swap((void*) &tmp_left, (void*) &to_left);
-                swap((void*) &tmp_right, (void*) &to_right);
-                swap((void*) &tmp_up, (void*) &to_up);
-                swap((void*) &tmp_down, (void*) &to_down);
+                swap_particle_array(&tmp_left, &to_left);
+                swap_particle_array(&tmp_right, &to_right);
+                swap_particle_array(&tmp_up, &to_up);
+                swap_particle_array(&tmp_down, &to_down);
                 tmp_finished_size = fin_size;
 
                 omp_unset_lock(&lock);
@@ -463,8 +469,7 @@ void writeResult(Ctx* ctx, Particle* finished, int fin_size, int rank, int size)
 
     MPI_File_close(&data);
 }
-*/
-
+/*
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -508,7 +513,6 @@ void swap_int(int* x, int* y) {
     *x = *y;
     *y = tmp;
 }
-
 
 
 void insert(Particle x, Particle** ar, int* size, int* max_size) {
@@ -907,3 +911,4 @@ void writeResult(Ctx* ctx, Particle* finished, int size, int rank, int comm_size
 
     MPI_File_close(&data);
 }
+*/
