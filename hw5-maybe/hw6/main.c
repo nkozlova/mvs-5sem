@@ -568,8 +568,9 @@ void write_data_to_file(ctx_t* ctx, particle_t* finished, int size, int rank, in
 
     for (int y = 0; y < ctx->l; y++) {
         for (int i = 0; i < ctx->l * comm_size; i++) {
-            printf("%d \n", positions[y][i]);
+            printf("%d ", positions[y][i]);
         }
+        printf("\n");
         MPI_File_set_view(data, start_seek + line_seek * y, MPI_INT, MPI_INT, "native", MPI_INFO_NULL);
         MPI_File_write(data, positions[y], ctx->l * comm_size, MPI_INT, MPI_STATUS_IGNORE);;
     }
