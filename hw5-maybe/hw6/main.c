@@ -33,15 +33,15 @@ typedef struct Particle_t {
 
 
 void swapI(int* x, int* y) {
-    int tmp = *x;
+    int z = *x;
     *x = *y;
-    *y = tmp;
+    *y = z;
 }
 
 void swapP(Particle** x, Particle** y) {
-    Particle* tmp = *x;
+    Particle* z = *x;
     *x = *y;
-    *y = tmp;
+    *y = z;
 }
 
 
@@ -144,7 +144,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
         down_rank = rank % ctx->a;
     }
 
-    int flag = 1;
+    int flag_running = 1;
     omp_lock_t lock;
     omp_init_lock(&lock);
     omp_set_lock(&lock);
@@ -153,7 +153,191 @@ void randomWalk(Ctx* ctx, int rank, int size) {
     {
 #pragma omp section
         {
-            while(flag) {
+            int* rands;
+            int to;
+            if (rank == MASTER) {
+                srand(time(NULL));
+                rands = (int*) calloc(size, sizeof(int));
+                for (int i = 0; i < size; i++) {
+                    rands[i] = rand();
+                }
+            }
+            MPI_Scatter(rands, 1, MPI_INT, &to, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
+            if (rank == MASTER) {
+                free(rands);
+            }
+
+            for (int i = 0; i < count; i++) {
+                particles[i] = (Particle) {
+                        .x = rand() % ctx->l,
+                        .y = rand() % ctx->l,
+                        .n = ctx->n,
+                        .id_proc = rank,
+                };
+            }
+
+            int tmp_res_size = res_size;
+
+            int tmp_left_size = left_size, tmp_right_size = right_size, tmp_up_size = up_size, tmp_down_size = down_size;
+            int tmp_left_max_count = left_max_count, tmp_right_max_count = right_max_count,
+                    tmp_up_max_count = up_max_count, tmp_down_max_count = down_max_count;
+
+            Particle* tmp_left = (Particle*) calloc(tmp_left_max_count, sizeof(Particle));
+            Particle* tmp_right = (Particle*) calloc(tmp_right_max_count, sizeof(Particle));
+            Particle* tmp_up = (Particle*) calloc(tmp_up_max_count, sizeof(Particle));
+            Particle* tmp_down = (Particle*) calloc(tmp_down_max_count, sizeof(Particle));
+
+            omp_unset_lock(&lock);
+
+            while (flag_running) {
+                omp_set_lock(&lock);
+
+                swapP(&tmp_left, &to_left);
+                swapP(&tmp_right, &to_right);
+                swapP(&tmp_up, &to_up);
+                swapP(&tmp_down, &to_down);
+
+                swapI(&tmp_left_size, &left_size);
+                swapI(&tmp_right_size, &right_size);
+                swapI(&tmp_up_size, &up_size);
+                swapI(&tmp_down_size, &down_size);
+                swapI(&tmp_left_max_count, &left_max_count);
+                swapI(&tmp_right_max_count, &right_max_count);
+                swapI(&tmp_up_max_count, &up_max_count);
+                swapI(&tmp_down_max_count, &down_max_count);
+
+                omp_unset_lock(&lock);
+
+                MPI_Request requests[8];
+
+                left_size = 0;
+                right_size = 0;
+                up_size = 0;
+                down_size = 0;
+
+                MPI_Issend(&tmp_left_size, 1, MPI_INT, left_rank, LEFT, MPI_COMM_WORLD, requests);
+                MPI_Issend(&tmp_right_size, 1, MPI_INT, right_rank, RIGHT, MPI_COMM_WORLD, requests + 1);
+                MPI_Issend(&tmp_up_size, 1, MPI_INT, up_rank, UP, MPI_COMM_WORLD, requests + 2);
+                MPI_Issend(&tmp_down_size, 1, MPI_INT, down_rank, DOWN, MPI_COMM_WORLD, requests + 3);
+
+                int from_left_size, from_right_size, from_up_size, from_down_size;
+
+                MPI_Irecv(&from_left_size, 1, MPI_INT, left_rank, RIGHT, MPI_COMM_WORLD, requests + 4);
+                MPI_Irecv(&from_right_size, 1, MPI_INT, right_rank, LEFT, MPI_COMM_WORLD, requests + 5);
+                MPI_Irecv(&from_up_size, 1, MPI_INT, up_rank, DOWN, MPI_COMM_WORLD, requests + 6);
+                MPI_Irecv(&from_down_size, 1, MPI_INT, down_rank, UP, MPI_COMM_WORLD, requests + 7);
+
+                MPI_Waitall(8, requests, MPI_STATUS_IGNORE);
+
+                MPI_Issend(tmp_left, tmp_left_size * sizeof(Particle), MPI_BYTE,
+                           left_rank, LEFT, MPI_COMM_WORLD, requests);
+                MPI_Issend(tmp_right, tmp_right_size * sizeof(Particle), MPI_BYTE,
+                           right_rank, RIGHT, MPI_COMM_WORLD, requests + 1);
+                MPI_Issend(tmp_up, tmp_up_size * sizeof(Particle), MPI_BYTE,
+                           up_rank, UP, MPI_COMM_WORLD, requests + 2);
+                MPI_Issend(tmp_down, tmp_down_size * sizeof(Particle), MPI_BYTE,
+                           down_rank, DOWN, MPI_COMM_WORLD, requests + 3);
+
+                Particle* from_left = (Particle*) calloc(from_left_size, sizeof(Particle));
+                Particle* from_right = (Particle*) calloc(from_right_size, sizeof(Particle));
+                Particle* from_up = (Particle*) calloc(from_up_size, sizeof(Particle));
+                Particle* from_down = (Particle*) calloc(from_down_size, sizeof(Particle));
+
+                MPI_Irecv(from_left, from_left_size * sizeof(Particle), MPI_BYTE,
+                          left_rank, RIGHT, MPI_COMM_WORLD, requests + 4);
+                MPI_Irecv(from_right, from_right_size * sizeof(Particle), MPI_BYTE,
+                          right_rank, LEFT, MPI_COMM_WORLD, requests + 5);
+                MPI_Irecv(from_up, from_up_size * sizeof(Particle), MPI_BYTE,
+                          up_rank, DOWN, MPI_COMM_WORLD, requests + 6);
+                MPI_Irecv(from_down, from_down_size * sizeof(Particle), MPI_BYTE,
+                          down_rank, UP, MPI_COMM_WORLD, requests + 7);
+
+                MPI_Waitall(8, requests, MPI_STATUS_IGNORE);
+
+                int all_res[size];
+                tmp_res_size = res_size;
+
+                MPI_Gather(&tmp_res_size, 1, MPI_INT, all_res, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
+
+                omp_set_lock(&lock);
+
+                for (int i = 0; i < from_left_size; i++) {
+                    if (count >= max_count) {
+                        max_count *= 2;
+                        particles = (Particle* )realloc(particles, max_count * sizeof(Particle));
+                    }
+                    particles[count] = from_left[i];
+                    count++;
+                }
+
+                for (int i = 0; i < from_right_size; i++) {
+                    if (count >= max_count) {
+                        max_count *= 2;
+                        particles = (Particle* )realloc(particles, max_count * sizeof(Particle));
+                    }
+                    particles[count] = from_right[i];
+                    count++;
+                }
+
+                for (int i = 0; i < from_up_size; i++) {
+                    if (count >= max_count) {
+                        max_count *= 2;
+                        particles = (Particle* )realloc(particles, max_count * sizeof(Particle));
+                    }
+                    particles[count] = from_up[i];
+                    count++;
+                }
+
+                for (int i = 0; i < from_down_size; i++) {
+                    if (count >= max_count) {
+                        max_count *= 2;
+                        particles = (Particle* )realloc(particles, max_count * sizeof(Particle));
+                    }
+                    particles[count] = from_down[i];
+                    count++;
+                }
+
+                int flag_active[size];
+
+                if (rank == MASTER) {
+
+                    int sum_res = 0;
+                    for (int i = 0; i < size; i++) {
+                        sum_res += all_res[i];
+                    }
+
+                    if (sum_res == size * ctx->N) {
+                        for (int i = 0; i < size; i++) {
+                            flag_active[i] = 0;
+                        }
+                    } else {
+                        for (int i = 0; i < size; i++) {
+                            flag_active[i] = 1;
+                        }
+                    }
+                }
+
+                MPI_Scatter(flag_active, 1, MPI_INT, &flag_running, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
+
+                omp_unset_lock(&lock);
+
+                free(from_left);
+                free(from_right);
+                free(from_up);
+                free(from_down);
+            }
+
+            writeResult(ctx, rank, size, resulted, res_size);
+
+            free(tmp_left);
+            free(tmp_right);
+            free(tmp_up);
+            free(tmp_down);
+        }
+
+#pragma omp section
+        {
+            while(flag_running) {
                 omp_set_lock(&lock);
                 for (int j = 0; j < 100; j++) {
                     int i = 0;
@@ -253,184 +437,6 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                 }
                 omp_unset_lock(&lock);
             }
-        }
-
-#pragma omp section
-        {
-            int* rands;
-            int to;
-            if (rank == MASTER) {
-                srand(time(NULL));
-                rands = (int*) calloc(size, sizeof(int));
-                for (int i = 0; i < size; i++) {
-                    rands[i] = rand();
-                }
-            }
-            MPI_Scatter(rands, 1, MPI_INT, &to, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
-            if (rank == MASTER) {
-                free(rands);
-            }
-
-            for (int i = 0; i < count; i++) {
-                particles[i] = (Particle) {
-                        .x = rand() % ctx->l,
-                        .y = rand() % ctx->l,
-                        .n = ctx->n,
-                        .id_proc = rank,
-                };
-            }
-
-            int tmp_left_size = left_size, tmp_right_size = right_size, tmp_up_size = up_size, tmp_down_size = down_size;
-            int tmp_left_max_count = left_max_count, tmp_right_max_count = right_max_count,
-                    tmp_up_max_count = up_max_count, tmp_down_max_count = down_max_count;
-
-            Particle* tmp_left = (Particle*) calloc(tmp_left_max_count, sizeof(Particle));
-            Particle* tmp_right = (Particle*) calloc(tmp_right_max_count, sizeof(Particle));
-            Particle* tmp_up = (Particle*) calloc(tmp_up_max_count, sizeof(Particle));
-            Particle* tmp_down = (Particle*) calloc(tmp_down_max_count, sizeof(Particle));
-            int tmp_res_size = res_size;
-
-            omp_unset_lock(&lock);
-
-            while (flag) {
-                omp_set_lock(&lock);
-                swapI(&tmp_left_size, &left_size);
-                swapI(&tmp_right_size, &right_size);
-                swapI(&tmp_up_size, &up_size);
-                swapI(&tmp_down_size, &down_size);
-                swapI(&tmp_left_max_count, &left_max_count);
-                swapI(&tmp_right_max_count, &right_max_count);
-                swapI(&tmp_up_max_count, &up_max_count);
-                swapI(&tmp_down_max_count, &down_max_count);
-                left_size = 0;
-                right_size = 0;
-                up_size = 0;
-                down_size = 0;
-                swapP(&tmp_left, &to_left);
-                swapP(&tmp_right, &to_right);
-                swapP(&tmp_up, &to_up);
-                swapP(&tmp_down, &to_down);
-                tmp_res_size = res_size;
-
-                omp_unset_lock(&lock);
-
-                MPI_Request requests[8];
-
-                int from_left_size, from_right_size, from_up_size, from_down_size;
-                MPI_Issend(&tmp_left_size, 1, MPI_INT, left_rank, LEFT, MPI_COMM_WORLD, requests);
-                MPI_Issend(&tmp_right_size, 1, MPI_INT, right_rank, RIGHT, MPI_COMM_WORLD, requests + 1);
-                MPI_Issend(&tmp_up_size, 1, MPI_INT, up_rank, UP, MPI_COMM_WORLD, requests + 2);
-                MPI_Issend(&tmp_down_size, 1, MPI_INT, down_rank, DOWN, MPI_COMM_WORLD, requests + 3);
-
-                MPI_Irecv(&from_left_size, 1, MPI_INT, left_rank, RIGHT, MPI_COMM_WORLD, requests + 4);
-                MPI_Irecv(&from_right_size, 1, MPI_INT, right_rank, LEFT, MPI_COMM_WORLD, requests + 5);
-                MPI_Irecv(&from_up_size, 1, MPI_INT, up_rank, DOWN, MPI_COMM_WORLD, requests + 6);
-                MPI_Irecv(&from_down_size, 1, MPI_INT, down_rank, UP, MPI_COMM_WORLD, requests + 7);
-
-                MPI_Waitall(8, requests, MPI_STATUS_IGNORE);
-
-                Particle* from_left = (Particle*) calloc(from_left_size, sizeof(Particle));
-                Particle* from_right = (Particle*) calloc(from_right_size, sizeof(Particle));
-                Particle* from_up = (Particle*) calloc(from_up_size, sizeof(Particle));
-                Particle* from_down = (Particle*) calloc(from_down_size, sizeof(Particle));
-
-                MPI_Issend(tmp_left, tmp_left_size * sizeof(Particle), MPI_BYTE,
-                           left_rank, LEFT, MPI_COMM_WORLD, requests);
-                MPI_Issend(tmp_right, tmp_right_size * sizeof(Particle), MPI_BYTE,
-                           right_rank, RIGHT, MPI_COMM_WORLD, requests + 1);
-                MPI_Issend(tmp_up, tmp_up_size * sizeof(Particle), MPI_BYTE,
-                           up_rank, UP, MPI_COMM_WORLD, requests + 2);
-                MPI_Issend(tmp_down, tmp_down_size * sizeof(Particle), MPI_BYTE,
-                           down_rank, DOWN, MPI_COMM_WORLD, requests + 3);
-
-                MPI_Irecv(from_left, from_left_size * sizeof(Particle), MPI_BYTE,
-                          left_rank, RIGHT, MPI_COMM_WORLD, requests + 4);
-                MPI_Irecv(from_right, from_right_size * sizeof(Particle), MPI_BYTE,
-                          right_rank, LEFT, MPI_COMM_WORLD, requests + 5);
-                MPI_Irecv(from_up, from_up_size * sizeof(Particle), MPI_BYTE,
-                          up_rank, DOWN, MPI_COMM_WORLD, requests + 6);
-                MPI_Irecv(from_down, from_down_size * sizeof(Particle), MPI_BYTE,
-                          down_rank, UP, MPI_COMM_WORLD, requests + 7);
-
-                MPI_Waitall(8, requests, MPI_STATUS_IGNORE);
-
-                int all_res[size];
-                MPI_Gather(&tmp_res_size, 1, MPI_INT, all_res, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
-
-                omp_set_lock(&lock);
-
-                for (int i = 0; i < from_left_size; i++) {
-                    if (count >= max_count) {
-                        max_count *= 2;
-                        particles = (Particle* )realloc(particles, max_count * sizeof(Particle));
-                    }
-                    particles[count] = from_left[i];
-                    count++;
-                }
-
-                for (int i = 0; i < from_right_size; i++) {
-                    if (count >= max_count) {
-                        max_count *= 2;
-                        particles = (Particle* )realloc(particles, max_count * sizeof(Particle));
-                    }
-                    particles[count] = from_right[i];
-                    count++;
-                }
-
-                for (int i = 0; i < from_up_size; i++) {
-                    if (count >= max_count) {
-                        max_count *= 2;
-                        particles = (Particle* )realloc(particles, max_count * sizeof(Particle));
-                    }
-                    particles[count] = from_up[i];
-                    count++;
-                }
-
-                for (int i = 0; i < from_down_size; i++) {
-                    if (count >= max_count) {
-                        max_count *= 2;
-                        particles = (Particle* )realloc(particles, max_count * sizeof(Particle));
-                    }
-                    particles[count] = from_down[i];
-                    count++;
-                }
-
-                int is_actives[size];
-
-                if (rank == MASTER) {
-
-                    int sum_res = 0;
-                    for (int i = 0; i < size; i++) {
-                        sum_res += all_res[i];
-                    }
-
-                    if (sum_res == size * ctx->N) {
-                        for (int i = 0; i < size; i++) {
-                            is_actives[i] = 0;
-                        }
-                    } else {
-                        for (int i = 0; i < size; i++) {
-                            is_actives[i] = 1;
-                        }
-                    }
-                }
-
-                MPI_Scatter(is_actives, 1, MPI_INT, &flag, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
-
-                omp_unset_lock(&lock);
-
-                free(from_left);
-                free(from_right);
-                free(from_up);
-                free(from_down);
-            }
-
-            writeResult(ctx, rank, size, resulted, res_size);
-
-            free(tmp_left);
-            free(tmp_right);
-            free(tmp_up);
-            free(tmp_down);
         }
     }
 
