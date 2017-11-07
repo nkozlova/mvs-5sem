@@ -28,7 +28,7 @@ typedef struct Particle_t {
     int x;
     int y;
     int n;
-    int process;
+    int id_proc;
 } Particle;
 
 
@@ -279,7 +279,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                         .x = x,
                         .y = y,
                         .n = ctx->n,
-                        .process = rank,
+                        .id_proc = rank,
                 };
                 particles[i] = tmp_particle;
             }
@@ -449,7 +449,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
 
 void writeResult(Ctx* ctx, int rank, int size, Particle* resulted, int res_size) {
     MPI_File data;
-    MPI_File_delete("data.bin", MPI_INFO_NULL);
+    // MPI_File_delete("data.bin", MPI_INFO_NULL);
     MPI_File_open(MPI_COMM_WORLD, "data.bin", MPI_MODE_WRONLY | MPI_MODE_CREATE, MPI_INFO_NULL, &data);
 
     int pos[ctx->l][ctx->l * size];
@@ -460,15 +460,15 @@ void writeResult(Ctx* ctx, int rank, int size, Particle* resulted, int res_size)
     }
 
     for (int i = 0; i < res_size; i++) {
-        pos[resulted[i].y][resulted[i].x * size + resulted[i].process] += 1;
+        pos[resulted[i].y][resulted[i].x * size + resulted[i].id_proc]++;
     }
 
-    int start_seek = ((ctx->l * ctx->l) * rank / ctx->a * ctx->a + ctx->l * (rank % ctx->a)) * sizeof (int) * size;
-    int line_seek = (ctx->l * ctx->a) * sizeof(int) * size;
+    int start_seek = (ctx->l * ctx->l * (rank / ctx->a) * ctx->a + ctx->l * (rank % ctx->a)) * size * sizeof (int);
+    int line_seek = (ctx->l * ctx->a) * size * sizeof(int);
 
     for (int i = 0; i < ctx->l; i++) {
         MPI_File_set_view(data, start_seek + line_seek * i, MPI_INT, MPI_INT, "native", MPI_INFO_NULL);
-        MPI_File_write(data, pos[i], ctx->l * size, MPI_INT, MPI_STATUS_IGNORE);;
+        MPI_File_write(data, pos[i], ctx->l * size, MPI_INT, MPI_STATUS_IGNORE);
     }
 
     MPI_File_close(&data);
