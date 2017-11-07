@@ -509,26 +509,19 @@ void swap_int(int* x, int* y) {
 }
 
 
-int get_dir(double left, double up, double right, double down) {
-    if (left >= up && left >= right && left >= down) {
+int step(ctx_t* ctx) {
+    double p = rand() / RAND_MAX;
+    if (p <= ctx->pl) {
         return LEFT;
-    } else if (up >= left && up >= right && up >= down) {
+    } else if (p <= ctx->pu) {
         return UP;
-    } else if (right >= left && right >= up && right >= down) {
+    } else if (p <= ctx->pr) {
         return RIGHT;
     } else {
         return DOWN;
     }
 }
 
-int step(ctx_t* ctx) {
-    double left = rand() * ctx->pl;
-    double right = rand() * ctx->pr;
-    double up = rand() * ctx->pu;
-    double down = rand() * ctx->pd;
-
-    return get_dir(left, up, right, down);
-}
 
 void insert(particle_t x, particle_t** ar, int* size, int* max_size) {
     if (*size >= *max_size) {
@@ -567,10 +560,6 @@ void write_data_to_file(ctx_t* ctx, particle_t* finished, int size, int rank, in
     int line_seek = (ctx->l * ctx->a) * sizeof(int) * comm_size;
 
     for (int y = 0; y < ctx->l; y++) {
-        for (int i = 0; i < ctx->l * comm_size; i++) {
-            printf("%d ", positions[y][i]);
-        }
-        printf("\n");
         MPI_File_set_view(data, start_seek + line_seek * y, MPI_INT, MPI_INT, "native", MPI_INFO_NULL);
         MPI_File_write(data, positions[y], ctx->l * comm_size, MPI_INT, MPI_STATUS_IGNORE);;
     }
