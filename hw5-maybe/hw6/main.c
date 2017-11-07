@@ -302,7 +302,10 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                 swap(&tmp_right_max_count, &right_max_count);
                 swap(&tmp_up_max_count, &up_max_count);
                 swap(&tmp_down_max_count, &down_max_count);
-                left_size = 0, right_size = 0, up_size = 0, down_size = 0;
+                left_size = 0;
+                right_size = 0;
+                up_size = 0;
+                down_size = 0;
                 swapP(&tmp_left, &to_left);
                 swapP(&tmp_right, &to_right);
                 swapP(&tmp_up, &to_up);
@@ -440,28 +443,28 @@ void randomWalk(Ctx* ctx, int rank, int size) {
     omp_destroy_lock(&lock);
 }
 
-void writeResult(Ctx* ctx, Particle* result, int res_size, int rank, int size) {
+void writeResult(Ctx* ctx, Particle* finished, int size, int rank, int comm_size) {
     MPI_File data;
     MPI_File_delete("data.bin", MPI_INFO_NULL);
     MPI_File_open(MPI_COMM_WORLD, "data.bin", MPI_MODE_WRONLY | MPI_MODE_CREATE, MPI_INFO_NULL, &data);
 
-    int pos[ctx->l][ctx->l * size];
+    int positions[ctx->l][ctx->l * comm_size];
     for (int y = 0; y < ctx->l; y++) {
-        for (int x = 0; x < ctx->l * size; x++) {
-            pos[y][x] = 0;
+        for (int x = 0; x < ctx->l * comm_size; x++) {
+            positions[y][x] = 0;
         }
     }
 
-    for (int i = 0; i < res_size; i++) {
-        pos[result[i].y][result[i].x * size + result[i].process] += 1;
+    for (int i = 0; i < size; i++) {
+        positions[finished[i].y][finished[i].x * comm_size + finished[i].process] += 1;
     }
 
-    int start_seek = ((ctx->l * ctx->l) * (rank / ctx->a) * ctx->a + ctx->l * (rank % ctx->a)) * size * sizeof (int);
-    int line_seek = ctx->l * ctx->a * size * sizeof(int);
+    int start_seek = ((ctx->l * ctx->l) * (rank / ctx->a) * ctx->a + ctx->l * (rank % ctx->a)) * sizeof (int) * comm_size;
+    int line_seek = (ctx->l * ctx->a) * sizeof(int) * comm_size;
 
     for (int y = 0; y < ctx->l; y++) {
         MPI_File_set_view(data, start_seek + line_seek * y, MPI_INT, MPI_INT, "native", MPI_INFO_NULL);
-        MPI_File_write(data, pos[y], ctx->l * size, MPI_INT, MPI_STATUS_IGNORE);
+        MPI_File_write(data, positions[y], ctx->l * comm_size, MPI_INT, MPI_STATUS_IGNORE);;
     }
 
     MPI_File_close(&data);
