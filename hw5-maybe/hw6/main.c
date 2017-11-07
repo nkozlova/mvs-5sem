@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <omp.h>
+//#include <omp.h>
 #include <mpi.h>
 
 #define MASTER 0
@@ -66,7 +66,7 @@ int main (int argc, char* argv[]) {
         exit(1);
     }
 
-    omp_set_num_threads(2);
+    //omp_set_num_threads(2);
 
     double ts1, ts2;
     if (rank == MASTER) {
@@ -134,17 +134,17 @@ void randomWalk(Ctx* ctx, int rank, int size) {
     int fin_max_count = count;
     Particle* finished = (Particle*) calloc(fin_max_count, sizeof(Particle));
 
-    omp_lock_t lock;
+    //omp_lock_t lock;
     int is_running = 1;
-    omp_init_lock(&lock);
-    omp_set_lock(&lock);
+    //omp_init_lock(&lock);
+    //omp_set_lock(&lock);
 
-#pragma omp parallel sections default(shared)
+//#pragma omp parallel sections default(shared)
     {
-#pragma omp section
+//#pragma omp section
         {
             while(is_running) {
-                omp_set_lock(&lock);
+  //              omp_set_lock(&lock);
                 for (int j = 0; j < 100; j++) {
                     int i = 0;
                     while(i < count) {
@@ -241,11 +241,11 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                         i++;
                     }
                 }
-                omp_unset_lock(&lock);
+    //            omp_unset_lock(&lock);
             }
         }
 
-#pragma omp section
+//#pragma omp section
         {
             int* seeds;
             int seed;
@@ -284,10 +284,10 @@ void randomWalk(Ctx* ctx, int rank, int size) {
             Particle* tmp_down = (Particle*) calloc(tmp_down_max_count, sizeof(Particle));
             int tmp_finished_size = fin_size;
 
-            omp_unset_lock(&lock);
+  //          omp_unset_lock(&lock);
 
             while (is_running) {
-                omp_set_lock(&lock);
+//                omp_set_lock(&lock);
                 swap((void*) &tmp_left_size, (void*) &tmp_left_size);
                 swap((void*) &tmp_right_size, (void*) &right_size);
                 swap((void*) &tmp_up_size, (void*) &up_size);
@@ -306,7 +306,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                 swap((void*) &tmp_down, (void*) &to_down);
                 tmp_finished_size = fin_size;
 
-                omp_unset_lock(&lock);
+  //              omp_unset_lock(&lock);
 
                 MPI_Request requests[8];
 
@@ -351,7 +351,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                 int all_finished[size];
                 MPI_Gather(&tmp_finished_size, 1, MPI_INT, all_finished, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
 
-                omp_set_lock(&lock);
+//                omp_set_lock(&lock);
 
                 for (int i = 0; i < from_left_size; i++) {
                     if (count >= max_count) {
@@ -411,7 +411,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
 
                 MPI_Scatter(is_actives, 1, MPI_INT, &is_running, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
 
-                omp_unset_lock(&lock);
+//                omp_unset_lock(&lock);
 
                 free(from_left);
                 free(from_right);
@@ -434,7 +434,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
     free(to_up);
     free(to_down);
     free(finished);
-    omp_destroy_lock(&lock);
+//    omp_destroy_lock(&lock);
 }
 
 void writeResult(Ctx* ctx, Particle* finished, int fin_size, int rank, int size) {
