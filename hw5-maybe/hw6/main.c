@@ -451,9 +451,9 @@ void writeResult(Ctx* ctx, int rank, int size, Particle* result, int res_size) {
             pos[y][x] = 0;
         }
     }*/
-    int** pos = (int*) calloc(ctx->l, sizeof(int*));
+    int** pos = (int**) calloc(ctx->l, sizeof(int*));
     for (int i = 0; i < ctx->l; i++) {
-        pos[i] = (int) calloc(ctx->l * size, sizeof(int));
+        pos[i] = (int*) calloc(ctx->l * size, sizeof(int));
     }
 
     for (int i = 0; i < res_size; i++) {
