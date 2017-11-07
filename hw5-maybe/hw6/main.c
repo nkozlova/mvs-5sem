@@ -465,7 +465,9 @@ void writeResult(Ctx* ctx, int rank, int size, Particle* result, int res_size) {
 
     for (int y = 0; y < ctx->l; y++) {
         MPI_File_set_view(data, start_seek + line_seek * y, MPI_INT, MPI_INT, "native", MPI_INFO_NULL);
-        MPI_File_write(data, pos[y], ctx->l * size, MPI_INT, MPI_STATUS_IGNORE);
+        for (int i = 0; i < ctx->l * size; i++) {
+            MPI_File_write(data, pos[y][i], 1, MPI_INT, MPI_STATUS_IGNORE);
+        }
         free (pos[y]);
     }
     free(pos);
