@@ -28,7 +28,7 @@ typedef struct Particle_t {
 } Particle;
 
 
-void swap(int* x, int* y) {
+void swapI(int* x, int* y) {
     int tmp = *x;
     *x = *y;
     *y = tmp;
@@ -295,13 +295,13 @@ void randomWalk(Ctx* ctx, int rank, int size) {
 
             while (is_running) {
                 omp_set_lock(&lock);
-                swap(&tmp_right_size, &right_size);
-                swap(&tmp_up_size, &up_size);
-                swap(&tmp_down_size, &down_size);
-                swap(&tmp_left_max_count, &left_max_count);
-                swap(&tmp_right_max_count, &right_max_count);
-                swap(&tmp_up_max_count, &up_max_count);
-                swap(&tmp_down_max_count, &down_max_count);
+                swapI(&tmp_right_size, &right_size);
+                swapI(&tmp_up_size, &up_size);
+                swapI(&tmp_down_size, &down_size);
+                swapI(&tmp_left_max_count, &left_max_count);
+                swapI(&tmp_right_max_count, &right_max_count);
+                swapI(&tmp_up_max_count, &up_max_count);
+                swapI(&tmp_down_max_count, &down_max_count);
                 left_size = 0;
                 right_size = 0;
                 up_size = 0;
