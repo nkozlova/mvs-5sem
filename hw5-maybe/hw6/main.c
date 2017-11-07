@@ -352,7 +352,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                 MPI_Irecv(from_down, from_down_size * sizeof(Particle), MPI_BYTE,
                           down_rank, UP, MPI_COMM_WORLD, requests + 7);
 
-                MPI_Waitall(8, &requests, MPI_STATUS_IGNORE);
+                MPI_Waitall(8, requests, MPI_STATUS_IGNORE);
 
                 int all_finished[size];
                 MPI_Gather(&tmp_finished_size, 1, MPI_INT, all_finished, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
