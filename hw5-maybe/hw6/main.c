@@ -295,7 +295,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
             omp_unset_lock(&lock);
 
             while (is_running) {
-                omp_set_lock(&lock);
+                /*omp_set_lock(&lock);
                 swap_int(&tmp_left_size, &left_size);
                 swap_int(&tmp_right_size, &right_size);
                 swap_int(&tmp_up_size, &up_size);
@@ -304,6 +304,21 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                 swap_int(&tmp_right_max_count, &right_max_count);
                 swap_int(&tmp_up_max_count, &up_max_count);
                 swap_int(&tmp_down_max_count, &down_max_count);
+                left_size = 0, right_size = 0, up_size = 0, down_size = 0;
+                swap_particle_array(&tmp_left, &to_left);
+                swap_particle_array(&tmp_right, &to_right);
+                swap_particle_array(&tmp_up, &to_up);
+                swap_particle_array(&tmp_down, &to_down);
+                tmp_finished_size = fin_size;*/
+                omp_set_lock(&lock);
+                swap((void*)&tmp_left_size, (void*)&left_size);
+                swap((void*)&tmp_right_size, (void*)&right_size);
+                swap((void*)&tmp_up_size, (void*)&up_size);
+                swap((void*)&tmp_down_size, (void*)&down_size);
+                swap((void*)&tmp_left_max_count, (void*)&left_max_count);
+                swap((void*)&tmp_right_max_count, (void*)&right_max_count);
+                swap((void*)&tmp_up_max_count, (void*)&up_max_count);
+                swap((void*)&tmp_down_max_count, (void*)&down_max_count);
                 left_size = 0, right_size = 0, up_size = 0, down_size = 0;
                 swap_particle_array(&tmp_left, &to_left);
                 swap_particle_array(&tmp_right, &to_right);
