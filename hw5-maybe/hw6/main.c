@@ -1,46 +1,4 @@
-/*#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <omp.h>
-#include <mpi.h>
-
-
-#define MASTER 0
-#define UP 0
-#define RIGHT 1
-#define DOWN 2
-#define LEFT 3
-
-
-typedef struct Ctx_t {
-    int l;
-    int a, b;
-    int n;
-    int N;
-    double p_l, p_r, p_u, p_d;
-} Ctx;
-
-typedef struct Particle_t {
-    int x;
-    int y;
-    int n;
-    int process;
-} Particle;
-
-
-void swapI(int* x, int* y) {
-    int tmp = *x;
-    *x = *y;
-    *y = tmp;
-}
-
-void swapP(Particle** x, Particle** y) {
-    Particle* tmp = *x;
-    *x = *y;
-    *y = tmp;
-}
-
-
+/*
 int step(Ctx* ctx);
 void writeResult(Ctx* ctx, Particle* result, int res_size, int rank, int size);
 void randomWalk(Ctx* ctx, int rank, int size);
@@ -504,21 +462,21 @@ typedef struct Particle_t {
 } Particle;
 
 
-void swap_particle_array(Particle** x, Particle** y) {
-    Particle* tmp = *x;
+void swapI(int* x, int* y) {
+    int tmp = *x;
     *x = *y;
     *y = tmp;
 }
 
-void swap_int(int* x, int* y) {
-    int tmp = *x;
+void swapP(Particle** x, Particle** y) {
+    Particle* tmp = *x;
     *x = *y;
     *y = tmp;
 }
 
 
 int step(Ctx* ctx);
-void writeResult(Ctx* ctx, Particle* finished, int fin_size, int rank, int size);
+void writeResult(Ctx* ctx, int rank, int size, Particle* resulted, int res_size);
 void randomWalk(Ctx* ctx, int rank, int size);
 
 
@@ -771,22 +729,22 @@ void randomWalk(Ctx* ctx, int rank, int size) {
 
             while (is_running) {
                 omp_set_lock(&lock);
-                swap_int(&tmp_left_size, &left_size);
-                swap_int(&tmp_right_size, &right_size);
-                swap_int(&tmp_up_size, &up_size);
-                swap_int(&tmp_down_size, &down_size);
-                swap_int(&tmp_left_max_count, &left_max_count);
-                swap_int(&tmp_right_max_count, &right_max_count);
-                swap_int(&tmp_up_max_count, &up_max_count);
-                swap_int(&tmp_down_max_count, &down_max_count);
+                swapI(&tmp_left_size, &left_size);
+                swapI(&tmp_right_size, &right_size);
+                swapI(&tmp_up_size, &up_size);
+                swapI(&tmp_down_size, &down_size);
+                swapI(&tmp_left_max_count, &left_max_count);
+                swapI(&tmp_right_max_count, &right_max_count);
+                swapI(&tmp_up_max_count, &up_max_count);
+                swapI(&tmp_down_max_count, &down_max_count);
                 left_size = 0;
                 right_size = 0;
                 up_size = 0;
                 down_size = 0;
-                swap_particle_array(&tmp_left, &to_left);
-                swap_particle_array(&tmp_right, &to_right);
-                swap_particle_array(&tmp_up, &to_up);
-                swap_particle_array(&tmp_down, &to_down);
+                swapP(&tmp_left, &to_left);
+                swapP(&tmp_right, &to_right);
+                swapP(&tmp_up, &to_up);
+                swapP(&tmp_down, &to_down);
                 tmp_finished_size = fin_size;
 
                 omp_unset_lock(&lock);
@@ -902,7 +860,7 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                 free(from_down);
             }
 
-            writeResult(ctx, finished, fin_size, rank, size);
+            writeResult(ctx, rank, size, finished, fin_size);
 
             free(tmp_left);
             free(tmp_right);
@@ -920,28 +878,28 @@ void randomWalk(Ctx* ctx, int rank, int size) {
     omp_destroy_lock(&lock);
 }
 
-void writeResult(Ctx* ctx, Particle* finished, int fin_size, int rank, int size) {
+void writeResult(Ctx* ctx, int rank, int size, Particle* resulted, int res_size) {
     MPI_File data;
     MPI_File_delete("data.bin", MPI_INFO_NULL);
     MPI_File_open(MPI_COMM_WORLD, "data.bin", MPI_MODE_WRONLY | MPI_MODE_CREATE, MPI_INFO_NULL, &data);
 
-    int positions[ctx->l][ctx->l * size];
-    for (int y = 0; y < ctx->l; y++) {
+    int pos[ctx->l][ctx->l * size];
+    for (int i = 0; i < ctx->l; i++) {
         for (int x = 0; x < ctx->l * size; x++) {
-            positions[y][x] = 0;
+            pos[i][x] = 0;
         }
     }
 
-    for (int i = 0; i < fin_size; i++) {
-        positions[finished[i].y][finished[i].x * size + finished[i].process] += 1;
+    for (int i = 0; i < res_size; i++) {
+        pos[resulted[i].y][resulted[i].x * size + resulted[i].process] += 1;
     }
 
     int start_seek = ((ctx->l * ctx->l) * rank / ctx->a * ctx->a + ctx->l * (rank % ctx->a)) * sizeof (int) * size;
     int line_seek = (ctx->l * ctx->a) * sizeof(int) * size;
 
-    for (int y = 0; y < ctx->l; y++) {
-        MPI_File_set_view(data, start_seek + line_seek * y, MPI_INT, MPI_INT, "native", MPI_INFO_NULL);
-        MPI_File_write(data, positions[y], ctx->l * size, MPI_INT, MPI_STATUS_IGNORE);;
+    for (int i = 0; i < ctx->l; i++) {
+        MPI_File_set_view(data, start_seek + line_seek * i, MPI_INT, MPI_INT, "native", MPI_INFO_NULL);
+        MPI_File_write(data, pos[i], ctx->l * size, MPI_INT, MPI_STATUS_IGNORE);;
     }
 
     MPI_File_close(&data);
