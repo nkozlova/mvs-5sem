@@ -298,10 +298,10 @@ void randomWalk(Ctx* ctx, int rank, int size) {
                 swap_int(&tmp_right_size, &right_size);
                 swap_int(&tmp_up_size, &up_size);
                 swap_int(&tmp_down_size, &down_size);
-                swap_int(&tmp_left_max_size, &left_max_size);
-                swap_int(&tmp_right_max_size, &right_max_size);
-                swap_int(&tmp_up_max_size, &up_max_size);
-                swap_int(&tmp_down_max_size, &down_max_size);
+                swap_int(&tmp_left_max_count, &left_max_count);
+                swap_int(&tmp_right_max_count, &right_max_count);
+                swap_int(&tmp_up_max_count, &up_max_count);
+                swap_int(&tmp_down_max_count, &down_max_count);
                 left_size = 0;
                 right_size = 0;
                 up_size = 0;
